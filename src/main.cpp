@@ -393,7 +393,40 @@ int main(){
             leaf.Draw(lightshowShader);
         }
       
-      
+        // grassbox shader setup 
+        // -----------
+        glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
+        grassboxShader.use();
+        view = glm::mat4(glm::mat3(camera.GetViewMatrix())); // remove translation from the view matrix
+        grassboxShader.setMat4("view", view);
+        grassboxShader.setMat4("projection", projection);
+
+        // render grassbox cube 
+       glBindVertexArray(grassboxVAO);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
+        glDepthFunc(GL_LESS); // set depth function back to default
+
+        // render normal-mapped quad
+// glm::mat4 model = glm::mat4(1.0f);
+        model = glm::rotate(model, glm::radians((float)glfwGetTime() * -10.0f), glm::normalize(glm::vec3(1.0, 0.0, 1.0))); // rotate the quad to show normal mapping from multiple directions
+        lightshowShader.setMat4("model", model);
+        lightshowShader.setVec3("viewPos", camera.Position);
+        lightshowShader.setVec3("lightPos", lightPos);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, diffuseMap);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, normalMap);
+        renderQuad();
+
+        // render light source (simply re-renders a smaller plane at the light's position for debugging/visualization)
+        model = glm::mat4(1.0f);
+        model = glm::translate(model, lightPos);
+        model = glm::scale(model, glm::vec3(0.1f));
+        lightshowShader.setMat4("model", model);
+        renderQuad();
     
     }
 }
