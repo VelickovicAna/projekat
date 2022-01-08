@@ -279,6 +279,12 @@ int main(){
     // -----------
     while (!glfwWindowShouldClose(window))
     {
+      // per-frame time logic  
+        // --------------------
+        auto currentFrame = (float)glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+        float time = currentFrame;
     }
   
 }
