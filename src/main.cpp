@@ -47,6 +47,10 @@ float lastFrame = 0.0f;
 glm::vec3 cakeposition(3.15f, -0.7f, 1.0f);
 glm::vec3 coffeeposition(-3.5f, -0.5f, 3.0f);
 
+void set_spot_light(Shader& shader, Camera& camera);
+
+bool isSpotlightActivated = true;
+
 int main(){
   
 }
@@ -395,4 +399,28 @@ void renderQuad1()
     glBindVertexArray(quadVAO1);
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glBindVertexArray(0);
+}
+
+
+void set_spot_light(Shader& objectShader, Camera& camera) {
+    objectShader.setVec3("spotLight.position", glm::vec3(1.0f, 1.0f, 12.0f));
+    objectShader.setVec3("spotLight.direction", -camera.Up);
+    if(isSpotlightActivated){
+        objectShader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
+        objectShader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
+        objectShader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
+    }
+    else{ // All to 0.
+        objectShader.setVec3("spotLight.ambient", 0.0f, 0.0f, 0.0f);
+        objectShader.setVec3("spotLight.diffuse", 0.0f, 0.0f, 0.0f);
+        objectShader.setVec3("spotLight.specular", 0.0f, 0.0f, 0.0f);
+    }
+    objectShader.setFloat("spotLight.constant", 1.0f);
+    objectShader.setFloat("spotLight.linear", 0.01);
+    objectShader.setFloat("spotLight.quadratic", 0.001);
+    objectShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(0.5f)));
+    objectShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(22.0f)));
+
+    objectShader.setVec3("viewPos", camera.Position);
+    objectShader.setFloat("material.shininess", 128.0f);
 }
