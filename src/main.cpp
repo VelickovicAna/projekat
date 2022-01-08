@@ -349,6 +349,16 @@ int main(){
         model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0, 1.0, 0.0));
         model = glm::scale(model, glm::vec3(0.5f));
         lightshowShader.setMat4("model", model);
+      
+        // render cake 
+        cake.Draw(lightshowShader);
+        glm::mat4 model1(1.0f);
+        model1 = glm::translate(model1, coffeeposition);
+        //model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0, 1.0, 0.0));
+        model1 = glm::scale(model1, glm::vec3(4.5f));
+        lightshowShader.setMat4("model", model1);
+
+        coffee.Draw(lightshowShader);
     }
 
   
