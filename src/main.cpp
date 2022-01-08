@@ -385,6 +385,13 @@ int main(){
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
         glDisable(GL_CULL_FACE);
     }
+  
+  
+        for(unsigned  int i = 0; i < amount; i++){
+            modelMatrices[i] = glm::rotate(modelMatrices[i], glm::radians(20.0f), glm::vec3(0,0,1));
+            lightshowShader.setMat4("model", modelMatrices[i]);
+            leaf.Draw(lightshowShader);
+        }
 
   
 }
