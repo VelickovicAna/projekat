@@ -266,6 +266,10 @@ int main(){
 
     glm::vec3 lightPos((5.15f, -0.5f, 4.0f));
   
+    //unsigned int normalMap  = loadTexture(FileSystem::getPath("resources/objects/slice_of_cake/cake_texture_by_xnickixstockx.jpg").c_str());
+    unsigned int diffuseMap = loadTexture(FileSystem::getPath("resources/objects/slice_of_cake/cake_texture_by_xnickixstockx.jpg").c_str());
+    unsigned int normalMap  = loadTexture(FileSystem::getPath("resources/objects/slice_of_cake/cake_texture_by_xnickixstockxbump1.jpg").c_str());
+  
 }
 
 
