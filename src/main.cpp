@@ -448,6 +448,16 @@ int main(){
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+      // optional: de-allocate all resources once they've outlived their purpose:
+    // -----------------------------------------------------------------------
+    glDeleteVertexArrays(1, &floorVAO);
+    glDeleteVertexArrays(1, &grassboxVAO);
+    glDeleteBuffers(1, &floorVBO);
+    glDeleteBuffers(1, &floorEBO);
+    glDeleteBuffers(1, &grassboxVBO);
+    // destroy all remaining windows/cursors, free any allocated resources
+    glfwTerminate();
+    return 0;
 }
 
 
