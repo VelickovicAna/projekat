@@ -270,6 +270,17 @@ int main(){
     unsigned int diffuseMap = loadTexture(FileSystem::getPath("resources/objects/slice_of_cake/cake_texture_by_xnickixstockx.jpg").c_str());
     unsigned int normalMap  = loadTexture(FileSystem::getPath("resources/objects/slice_of_cake/cake_texture_by_xnickixstockxbump1.jpg").c_str());
   
+    unsigned int diffuseMap1 = loadTexture(FileSystem::getPath("resources/objects/coffee/metallic.png").c_str());
+    unsigned int normalMap1  = loadTexture(FileSystem::getPath("resources/objects/coffee/normal.png").c_str());
+    unsigned int heightMap1 = loadTexture(FileSystem::getPath("resources/objects/coffee/roughness.png").c_str());
+  
+  
+    // render loop
+    // -----------
+    while (!glfwWindowShouldClose(window))
+    {
+    }
+  
 }
 
 
