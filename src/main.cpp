@@ -194,6 +194,39 @@ int main(){
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
     glEnableVertexAttribArray(0);
   
+    // loading textures into shaders
+    // -------------
+
+    // lightshow textures
+    unsigned int cakeSpecularRed = loadTexture(FileSystem::getPath("resources/objects/slice_of_cake/red.jpeg").c_str());
+
+    lightshowShader.use();
+    lightshowShader.setInt("material.diffuse", 0);
+    lightshowShader.setInt("material.specular", 1);
+    lightshowShader.setInt("material.specular2", 2);
+
+    // tablecloth textures
+    unsigned int floorDiffuseMap = loadTexture(FileSystem::getPath("resources/textures/images.jpeg").c_str());
+
+    // grassbox textures
+    vector<std::string> grassboxSides = {
+        FileSystem::getPath("resources/textures/trava/sh_rt.png"),
+        FileSystem::getPath("resources/textures/trava/sh_lf.png"),
+        FileSystem::getPath("resources/textures/trava/sh_up.png"),
+        FileSystem::getPath("resources/textures/trava/sh_dn.png"),
+        FileSystem::getPath("resources/textures/trava/sh_bk.png"),
+        FileSystem::getPath("resources/textures/trava/sh_ft.png")
+    };
+    unsigned int cubemapTexture = loadCubemap(grassboxSides);
+    grassboxShader.use();
+    grassboxShader.setInt("grassbox", 0);
+
+    // load model
+    Model cake(FileSystem::getPath("resources/objects/slice_of_cake/cake.obj"));
+    Model coffee(FileSystem::getPath("resources/objects/coffee/coffee_cup_obj.obj"));
+    cake.SetShaderTextureNamePrefix("material.");
+    coffee.SetShaderTextureNamePrefix("material.");
+  
 }
 
 
