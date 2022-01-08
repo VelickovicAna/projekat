@@ -319,6 +319,20 @@ int main(){
         lightshowShader.setFloat("pointLight.constant", 1.0f);
         lightshowShader.setFloat("pointLight.linear", 0.05f);
         lightshowShader.setFloat("pointLight.quadratic", 0.012f);
+      
+        //set_spot_light(lightshowShader);
+        // spotlight setup(5.15f, -0.5f, 4.0f)
+        lightshowShader.setVec3("spotLight.position", glm::vec3(5.15f, 9.0f, 4.0f));
+        lightshowShader.setVec3("spotLight.direction", lightPos);
+        lightshowShader.setVec3("spotLight.ambient", 1.0f, 1.0f, 1.0f);
+        lightshowShader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
+        lightshowShader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
+        lightshowShader.setFloat("spotLight.constant", 0.3f);
+        lightshowShader.setFloat("spotLight.linear", 0.1);
+        lightshowShader.setFloat("spotLight.quadratic", 0.1);
+        lightshowShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(17.9f)));
+        lightshowShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(0.0f)));
+        //lightshowShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(0.0f)));
     }
 
   
