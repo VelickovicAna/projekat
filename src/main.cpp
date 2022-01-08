@@ -427,6 +427,21 @@ int main(){
         model = glm::scale(model, glm::vec3(0.1f));
         lightshowShader.setMat4("model", model);
         renderQuad();
+      
+        glm::mat4 model5 = glm::mat4(1.0f);
+        model5 = glm::rotate(model5, glm::radians((float)glfwGetTime() * -10.0f), glm::normalize(glm::vec3(1.0, 1.0, 1.0))); // rotate the quad to show parallax mapping from multiple directions
+        lightshowShader.setMat4("model", model5);
+        lightshowShader.setVec3("viewPos", camera.Position);
+        lightshowShader.setVec3("lightPos", lightPos);
+        lightshowShader.setFloat("heightScale", heightScale); // adjust with Q and E keys
+        std::cout << heightScale << std::endl;
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, diffuseMap1);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, normalMap1);
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, heightMap1);
+        renderQuad1();
     
     }
 }
