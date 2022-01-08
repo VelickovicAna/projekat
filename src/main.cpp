@@ -33,6 +33,20 @@ bool blinnKeyPressed = false;
 bool flashLight = false;
 bool flashLightKeyPressed = false;
 
+// camera 
+Camera camera(glm::vec3(0.0f, 3.0f, 15.0f));
+//Camera camera(glm::vec3(0.0f, 1.0f, 12.0f));
+float lastX = (float)SCR_WIDTH / 2.0;
+float lastY = (float)SCR_HEIGHT / 2.0;
+bool firstMouse = true;
+
+// timing 
+float deltaTime = 0.0f;
+float lastFrame = 0.0f;
+
+glm::vec3 cakeposition(3.15f, -0.7f, 1.0f);
+glm::vec3 coffeeposition(-3.5f, -0.5f, 3.0f);
+
 int main(){
   
 }
