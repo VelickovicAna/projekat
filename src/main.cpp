@@ -295,6 +295,14 @@ int main(){
         // ------
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+      
+        // lightshowShader setup 
+        // -----------
+        lightshowShader.use();
+        lightshowShader.setVec3("viewPos", camera.Position);
+        lightshowShader.setFloat("material.shininess", 16.0f);
+        lightshowShader.setInt("blinn", blinn);
+        lightshowShader.setInt("flashLight", flashLight);
     }
   
 }
