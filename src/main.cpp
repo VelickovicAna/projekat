@@ -333,6 +333,14 @@ int main(){
         lightshowShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(17.9f)));
         lightshowShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(0.0f)));
         //lightshowShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(0.0f)));
+      
+        // view/projection transformations
+        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+        glm::mat4 view = camera.GetViewMatrix();
+        lightshowShader.setMat4("projection", projection);
+        lightshowShader.setMat4("view", view);
+
+        glm::mat4 model(1.0f);
     }
 
   
