@@ -309,6 +309,16 @@ int main(){
         lightshowShader.setVec3("dirLight.ambient", 0.01f, 0.01f, 0.01f);
         lightshowShader.setVec3("dirLight.diffuse", 0.4f, 0.4f, 0.4f);
         lightshowShader.setVec3("dirLight.specular", 1.0f, 1.0f, 1.0f);
+      
+        // point light setup 
+        //lightshowShader.setVec3("pointLight.position", cakeposition);
+        lightshowShader.setVec3("pointLight.position", glm::vec3(5.15f, 9.0f, 4.0f));
+        lightshowShader.setVec3("pointLight.ambient", 0.01f, 0.01f, 0.01f);
+        lightshowShader.setVec3("pointLight.diffuse", 1.0f, 1.0f, 1.0f);
+        lightshowShader.setVec3("pointLight.specular", 1.0f, 1.0f, 1.0f);
+        lightshowShader.setFloat("pointLight.constant", 1.0f);
+        lightshowShader.setFloat("pointLight.linear", 0.05f);
+        lightshowShader.setFloat("pointLight.quadratic", 0.012f);
     }
 
   
