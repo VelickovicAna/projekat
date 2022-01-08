@@ -359,6 +359,20 @@ int main(){
         lightshowShader.setMat4("model", model1);
 
         coffee.Draw(lightshowShader);
+      
+        // tablecloth setup
+        // light properties
+        lightshowShader.setVec3("dirLight.specular", 0.5f, 0.5f, 0.5f);
+
+        // material properties
+        lightshowShader.setFloat("material.shininess", 256.0f);
+
+        // world transformation
+       model = glm::mat4(1.0f);
+        model = glm::translate(model, glm::vec3(0.0f, -0.51f, 0.0f));
+        model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+        model = glm::scale(model, glm::vec3(25.0f));
+        lightshowShader.setMat4("model", model);
     }
 
   
