@@ -373,6 +373,17 @@ int main(){
         model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
         model = glm::scale(model, glm::vec3(25.0f));
         lightshowShader.setMat4("model", model);
+      
+        // bind diffuse map 
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, floorDiffuseMap);
+
+        // render tablecloth
+        glBindVertexArray(floorVAO);
+        glEnable(GL_CULL_FACE);     // floor won't be visible if looked from bellow
+        glCullFace(GL_BACK);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+        glDisable(GL_CULL_FACE);
     }
 
   
