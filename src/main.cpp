@@ -303,12 +303,14 @@ int main(){
         lightshowShader.setFloat("material.shininess", 16.0f);
         lightshowShader.setInt("blinn", blinn);
         lightshowShader.setInt("flashLight", flashLight);
-    }
-          // directional light setup //EMA
+      
+        // directional light setup
         lightshowShader.setVec3("dirLight.direction", 1.0f, -0.5f, 0.0f);
         lightshowShader.setVec3("dirLight.ambient", 0.01f, 0.01f, 0.01f);
         lightshowShader.setVec3("dirLight.diffuse", 0.4f, 0.4f, 0.4f);
         lightshowShader.setVec3("dirLight.specular", 1.0f, 1.0f, 1.0f);
+    }
+
   
 }
 
