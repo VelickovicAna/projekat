@@ -227,6 +227,45 @@ int main(){
     cake.SetShaderTextureNamePrefix("material.");
     coffee.SetShaderTextureNamePrefix("material.");
   
+  
+    Model leaf(FileSystem::getPath("resources/objects/leaf/leaf.obj"));
+    leaf.SetShaderTextureNamePrefix("material.");
+
+    float time = glfwGetTime();
+    unsigned int amount = 70;
+    glm::mat4* modelMatrices;
+    modelMatrices = new glm::mat4[amount];
+    srand(glfwGetTime()); // initialize random seed
+    float radius = 60.0;
+    float offset = 80.0f;
+    for (unsigned int i = 0; i < amount; i++)
+    {
+        glm::mat4 model = glm::mat4(1.0f);
+        // 1. translation: displace along circle with 'radius' in range [-offset, offset]
+        float angle = (float)i / (float)amount * 360.0f;
+        float displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
+        float x = sin(angle) * radius + displacement;
+        displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
+        float y = displacement * 0.4f; // keep height of asteroid field smaller compared to width of x and z
+        displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
+        float z = cos(angle) * radius + displacement;
+        model = glm::translate(model, glm::vec3(x, y, z));
+
+        // 2. scale: Scale between 0.05 and 0.25f
+        float scale = (rand() % 20) / 100.0f + 0.05;
+        model = glm::scale(model, glm::vec3(0.18, 0.18, 0.18));
+
+        // 3. rotation: add random rotation around a (semi)randomly picked rotation axis vector
+        float rotAngle = (rand() % 360);
+        model = glm::rotate(model, rotAngle, glm::vec3(2.0f, 0.0f, 3.0f)-glm::vec3(1.1f, 1.1f, 1.1f));
+
+        // 4. now add to list of matrices
+        modelMatrices[i] = model;
+    }
+
+
+    glm::vec3 lightPos((5.15f, -0.5f, 4.0f));
+  
 }
 
 
