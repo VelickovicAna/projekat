@@ -14,3 +14,5 @@ The project contains:
 * **By pressing**:
   * **B**: activate/deactivate Blinn-Phong lighting model
   * **V**: switch spot light on/off
+
+Link for youtube video : https://youtu.be/AE4qkhCjnUc
