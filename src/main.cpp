@@ -162,6 +162,17 @@ int main(){
          1.0f, -1.0f,  1.0f
     };
   
+     float transparentVertices[] = {
+            // positions         // texture Coords (swapped y coordinates because texture is flipped upside down)
+            0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
+            0.0f, -0.5f,  0.0f,  0.0f,  1.0f,
+            1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
+
+            0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
+            1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
+            1.0f,  0.5f,  0.0f,  1.0f,  0.0f
+    };
+  
   
     // tablecloth setup
     unsigned int floorVAO, floorVBO, floorEBO;
@@ -194,11 +205,52 @@ int main(){
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
     glEnableVertexAttribArray(0);
   
+  // transparent VAO
+    unsigned int transparentVAO, transparentVBO;
+    glGenVertexArrays(1, &transparentVAO);
+    glGenBuffers(1, &transparentVBO);
+    glBindVertexArray(transparentVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, transparentVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(transparentVertices), transparentVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glBindVertexArray(0);
+  
     // loading textures into shaders
     // -------------
 
     // lightshow textures
     unsigned int cakeSpecularRed = loadTexture(FileSystem::getPath("resources/objects/slice_of_cake/red.jpeg").c_str());
+  unsigned int transparentTexture = loadTexture(FileSystem::getPath("resources/textures/grass.png").c_str());
+
+    // transparent vegetation locations
+    // --------------------------------
+    vector<glm::vec3> vegetation
+            {
+                    glm::vec3(-11.0f, 0.0f, 13.0f),
+                    glm::vec3(-11.6f, 0.0f, 13.0f),
+                    glm::vec3(-10.0f, 0.0f, 13.0f),
+                    glm::vec3(-10.5f, 0.0f, 13.0f),
+                    glm::vec3(-8.0f, 0.0f, 13.0f),
+                    glm::vec3(-7.0f, 0.0f, 13.0f),
+                    glm::vec3( -6.0f, 0.0f, 13.0f),
+                    glm::vec3( -5.0f, 0.0f, 13.0f),
+                    glm::vec3(-4.0f, 0.0f, 13.0f),
+                    glm::vec3 (-3.0f, 0.0f, 13.0f),
+                    glm::vec3(-2.0f, 0.0f, 13.0f),
+                    glm::vec3(-1.0f, 0.0f, 13.0f),
+                    glm::vec3(0.0f, 0.0f, 13.0f),
+                    glm::vec3(1.0f, 0.0f, 13.0f),
+                    glm::vec3(2.3f, 0.0f, 13.0f),
+                    glm::vec3(3.3f, 0.0f, 13.0f),
+                    glm::vec3(4.3f, 0.0f, 13.0f),
+                    glm::vec3(4.8f, 0.0f, 13.0f),
+                    glm::vec3(7.0f, 0.0f, 13.0f),
+                    glm::vec3(8.0f, 0.0f, 13.0f),
+                    glm::vec3(10.0f, 0.0f, 13.0f)
+            };
 
     lightshowShader.use();
     lightshowShader.setInt("material.diffuse", 0);
@@ -221,9 +273,13 @@ int main(){
     grassboxShader.use();
     grassboxShader.setInt("grassbox", 0);
 
+      shader.use();
+    shader.setInt("texture1", 0);
+  
     // load model
     Model cake(FileSystem::getPath("resources/objects/slice_of_cake/cake.obj"));
     Model coffee(FileSystem::getPath("resources/objects/coffee/coffee_cup_obj.obj"));
+    Shader shader("resources/shaders/blending.vs", "resources/shaders/blending.fs");
     cake.SetShaderTextureNamePrefix("material.");
     coffee.SetShaderTextureNamePrefix("material.");
   
@@ -442,7 +498,21 @@ int main(){
         glActiveTexture(GL_TEXTURE2);
         glBindTexture(GL_TEXTURE_2D, heightMap1);
         renderQuad1();
-      
+        shader.use();
+       projection = glm::perspective(glm::radians(camera.Zoom), (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f,
+                                          100.0f);
+        view = camera.GetViewMatrix();
+         model = glm::mat4(1.0f);
+         shader.setMat4("projection", projection);
+         shader.setMat4("view", view);
+         glBindVertexArray(transparentVAO);
+         glBindTexture(GL_TEXTURE_2D, transparentTexture);
+         for (unsigned int i = 0; i < vegetation.size(); i++) {
+         model = glm::mat4(1.0f);
+         model = glm::translate(model, vegetation[i]);
+         model = glm::scale(model, glm::vec3(3.0f));
+          shader.setMat4("model", model);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
