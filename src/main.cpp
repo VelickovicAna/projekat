@@ -280,7 +280,6 @@ int main(){
     // load model
     Model cake(FileSystem::getPath("resources/objects/slice_of_cake/cake.obj"));
     Model coffee(FileSystem::getPath("resources/objects/coffee/coffee_cup_obj.obj"));
-    Shader shader("resources/shaders/blending.vs", "resources/shaders/blending.fs");
     cake.SetShaderTextureNamePrefix("material.");
     coffee.SetShaderTextureNamePrefix("material.");
   
