@@ -97,6 +97,7 @@ int main(){
     // -------------------------
     Shader grassboxShader("resources/shaders/grassbox.vs", "resources/shaders/grassbox.fs");
     Shader lightshowShader("resources/shaders/lightshow.vs", "resources/shaders/lightshow.fs");
+     Shader shader("resources/shaders/blending.vs", "resources/shaders/blending.fs");
 
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
