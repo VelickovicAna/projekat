@@ -1,4 +1,4 @@
-# Install script for directory: /home/emilija/Downloads/Projekat/projekat/libs/imgui
+# Install script for directory: /home/emilija/Desktop/projekat/libs/imgui
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

@@ -62,11 +62,11 @@
 			[
 				{
 					"backtrace" : 2,
-					"path" : "/home/emilija/Downloads/Projekat/projekat/cmake-build-debug/configuration"
+					"path" : "/home/emilija/Desktop/projekat/cmake-build-debug/configuration"
 				},
 				{
 					"backtrace" : 3,
-					"path" : "/home/emilija/Downloads/Projekat/projekat/include"
+					"path" : "/home/emilija/Desktop/projekat/include"
 				}
 			],
 			"language" : "CXX",

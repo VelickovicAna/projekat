@@ -80,28 +80,28 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "STB_IMAGE::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-STB_IMAGE-Debug-fb9f9a9ef0b668981e69.json",
+					"jsonFile" : "target-STB_IMAGE-Debug-fa0d02e276afa50d5a30.json",
 					"name" : "STB_IMAGE",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 1,
 					"id" : "glad::@394eb3637a8e70cb7dd5",
-					"jsonFile" : "target-glad-Debug-70ee5bcb8e324c324b79.json",
+					"jsonFile" : "target-glad-Debug-feb001fc24d11aaead44.json",
 					"name" : "glad",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 2,
 					"id" : "imgui::@8273e96cb584335637bd",
-					"jsonFile" : "target-imgui-Debug-1c7fad026ef1aed68833.json",
+					"jsonFile" : "target-imgui-Debug-7d7862df31b415ecb86f.json",
 					"name" : "imgui",
 					"projectIndex" : 0
 				},
 				{
 					"directoryIndex" : 0,
 					"id" : "project_base::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-project_base-Debug-b30fb8ca184e8e46b180.json",
+					"jsonFile" : "target-project_base-Debug-c68da75c150c78e839ff.json",
 					"name" : "project_base",
 					"projectIndex" : 0
 				}
@@ -111,8 +111,8 @@
 	"kind" : "codemodel",
 	"paths" : 
 	{
-		"build" : "/home/emilija/Downloads/Projekat/projekat/cmake-build-debug",
-		"source" : "/home/emilija/Downloads/Projekat/projekat"
+		"build" : "/home/emilija/Desktop/projekat/cmake-build-debug",
+		"source" : "/home/emilija/Desktop/projekat"
 	},
 	"version" : 
 	{

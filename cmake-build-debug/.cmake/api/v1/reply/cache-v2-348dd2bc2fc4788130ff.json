@@ -211,7 +211,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/home/emilija/Downloads/Projekat/projekat/cmake-build-debug"
+			"value" : "/home/emilija/Desktop/projekat/cmake-build-debug"
 		},
 		{
 			"name" : "CMAKE_CACHE_MAJOR_VERSION",
@@ -259,7 +259,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/snap/clion/178/bin/cmake/linux/bin/cmake"
+			"value" : "/snap/clion/180/bin/cmake/linux/bin/cmake"
 		},
 		{
 			"name" : "CMAKE_CPACK_COMMAND",
@@ -271,7 +271,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/snap/clion/178/bin/cmake/linux/bin/cpack"
+			"value" : "/snap/clion/180/bin/cmake/linux/bin/cpack"
 		},
 		{
 			"name" : "CMAKE_CTEST_COMMAND",
@@ -283,7 +283,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/snap/clion/178/bin/cmake/linux/bin/ctest"
+			"value" : "/snap/clion/180/bin/cmake/linux/bin/ctest"
 		},
 		{
 			"name" : "CMAKE_CXX_COMPILER",
@@ -735,7 +735,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/home/emilija/Downloads/Projekat/projekat"
+			"value" : "/home/emilija/Desktop/projekat"
 		},
 		{
 			"name" : "CMAKE_INSTALL_PREFIX",
@@ -787,7 +787,7 @@
 				}
 			],
 			"type" : "UNINITIALIZED",
-			"value" : "/snap/clion/178/bin/ninja/linux/ninja"
+			"value" : "/snap/clion/180/bin/ninja/linux/ninja"
 		},
 		{
 			"name" : "CMAKE_MODULE_LINKER_FLAGS",
@@ -1019,7 +1019,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/snap/clion/178/bin/cmake/linux/share/cmake-3.21"
+			"value" : "/snap/clion/180/bin/cmake/linux/share/cmake-3.21"
 		},
 		{
 			"name" : "CMAKE_SHARED_LINKER_FLAGS",
@@ -1431,7 +1431,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "/home/emilija/Downloads/Projekat/projekat/cmake-build-debug"
+			"value" : "/home/emilija/Desktop/projekat/cmake-build-debug"
 		},
 		{
 			"name" : "project_base_IS_TOP_LEVEL",
@@ -1455,7 +1455,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "/home/emilija/Downloads/Projekat/projekat"
+			"value" : "/home/emilija/Desktop/projekat"
 		}
 	],
 	"kind" : "cache",

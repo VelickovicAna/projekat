@@ -74,11 +74,11 @@
 			[
 				{
 					"backtrace" : 4,
-					"path" : "/home/emilija/Downloads/Projekat/projekat/libs/imgui/include"
+					"path" : "/home/emilija/Desktop/projekat/libs/imgui/include"
 				},
 				{
 					"backtrace" : 2,
-					"path" : "/home/emilija/Downloads/Projekat/projekat/libs/glad/include"
+					"path" : "/home/emilija/Desktop/projekat/libs/glad/include"
 				}
 			],
 			"language" : "CXX",

@@ -2,7 +2,7 @@
 	"artifacts" : 
 	[
 		{
-			"path" : "/home/emilija/Downloads/Projekat/projekat/project_base"
+			"path" : "/home/emilija/Desktop/projekat/project_base"
 		}
 	],
 	"backtrace" : 1,
@@ -72,19 +72,19 @@
 			[
 				{
 					"backtrace" : 3,
-					"path" : "/home/emilija/Downloads/Projekat/projekat/cmake-build-debug/configuration"
+					"path" : "/home/emilija/Desktop/projekat/cmake-build-debug/configuration"
 				},
 				{
 					"backtrace" : 4,
-					"path" : "/home/emilija/Downloads/Projekat/projekat/include"
+					"path" : "/home/emilija/Desktop/projekat/include"
 				},
 				{
 					"backtrace" : 2,
-					"path" : "/home/emilija/Downloads/Projekat/projekat/libs/glad/include"
+					"path" : "/home/emilija/Desktop/projekat/libs/glad/include"
 				},
 				{
 					"backtrace" : 2,
-					"path" : "/home/emilija/Downloads/Projekat/projekat/libs/imgui/include"
+					"path" : "/home/emilija/Desktop/projekat/libs/imgui/include"
 				}
 			],
 			"language" : "CXX",

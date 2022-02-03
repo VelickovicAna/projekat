@@ -14,6 +14,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <cmath>
+#include <random>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -21,17 +22,16 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow *window);
 unsigned int loadTexture(const char *path);
 unsigned int loadCubemap(vector<std::string> faces);
-void renderQuad(); 
-void renderQuad1();
 
 // settings
 float heightScale = 0.1;
-const unsigned int SCR_WIDTH = 1920;
-const unsigned int SCR_HEIGHT = 1080;
+const unsigned int SCR_WIDTH = 800;
+const unsigned int SCR_HEIGHT = 600;
 bool blinn = false;
 bool blinnKeyPressed = false;
 bool flashLight = false;
 bool flashLightKeyPressed = false;
+bool ssao = false;
 
 // camera 
 Camera camera(glm::vec3(0.0f, 3.0f, 15.0f));
@@ -44,12 +44,20 @@ bool firstMouse = true;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
+void renderCube();
+void renderQuad();
+
 glm::vec3 cakeposition(3.15f, -0.7f, 1.0f);
 glm::vec3 coffeeposition(-3.5f, -0.5f, 3.0f);
 
 void set_spot_light(Shader& shader, Camera& camera);
 
 bool isSpotlightActivated = true;
+
+float lerp(float a, float b, float f)
+{
+    return a + f * (b - a);
+}
 
 int main(){
   
@@ -98,6 +106,10 @@ int main(){
     Shader grassboxShader("resources/shaders/grassbox.vs", "resources/shaders/grassbox.fs");
     Shader lightshowShader("resources/shaders/lightshow.vs", "resources/shaders/lightshow.fs");
     Shader shader("resources/shaders/blending.vs", "resources/shaders/blending.fs");
+    Shader shaderGeometryPass("resources/shaders/geometry.vs", "resources/shaders/geometry.fs");
+    Shader shaderLightingPass("resources/shaders/ssao.vs", "resources/shaders/light_ssao.fs");
+    Shader shaderSSAO("resources/shaders/ssao.vs", "resources/shaders/ssao.fs");
+    Shader shaderSSAOBlur("resources/shaders/ssao.vs", "resources/shaders/blur.fs");
 
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
@@ -297,8 +309,127 @@ int main(){
     unsigned int diffuseMap1 = loadTexture(FileSystem::getPath("resources/objects/coffee/metallic.png").c_str());
     unsigned int normalMap1  = loadTexture(FileSystem::getPath("resources/objects/coffee/normal.png").c_str());
     unsigned int heightMap1 = loadTexture(FileSystem::getPath("resources/objects/coffee/roughness.png").c_str());
-  
-  
+
+
+    unsigned int gBuffer;
+    glGenFramebuffers(1, &gBuffer);
+    glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
+    unsigned int gPosition, gNormal, gAlbedo;
+    // position color buffer
+    glGenTextures(1, &gPosition);
+    glBindTexture(GL_TEXTURE_2D, gPosition);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);
+    // normal color buffer
+    glGenTextures(1, &gNormal);
+    glBindTexture(GL_TEXTURE_2D, gNormal);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0);
+    // color + specular color buffer
+    glGenTextures(1, &gAlbedo);
+    glBindTexture(GL_TEXTURE_2D, gAlbedo);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gAlbedo, 0);
+    // tell OpenGL which color attachments we'll use (of this framebuffer) for rendering
+    unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+    glDrawBuffers(3, attachments);
+    // create and attach depth buffer (renderbuffer)
+    unsigned int rboDepth;
+    glGenRenderbuffers(1, &rboDepth);
+    glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
+    // finally check if framebuffer is complete
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Framebuffer not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // also create framebuffer to hold SSAO processing stage
+    // -----------------------------------------------------
+    unsigned int ssaoFBO, ssaoBlurFBO;
+    glGenFramebuffers(1, &ssaoFBO);  glGenFramebuffers(1, &ssaoBlurFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
+    unsigned int ssaoColorBuffer, ssaoColorBufferBlur;
+    // SSAO color buffer
+    glGenTextures(1, &ssaoColorBuffer);
+    glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, SCR_WIDTH, SCR_HEIGHT, 0, GL_RED, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoColorBuffer, 0);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "SSAO Framebuffer not complete!" << std::endl;
+    // and blur stage
+    glBindFramebuffer(GL_FRAMEBUFFER, ssaoBlurFBO);
+    glGenTextures(1, &ssaoColorBufferBlur);
+    glBindTexture(GL_TEXTURE_2D, ssaoColorBufferBlur);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, SCR_WIDTH, SCR_HEIGHT, 0, GL_RED, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoColorBufferBlur, 0);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "SSAO Blur Framebuffer not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    std::uniform_real_distribution<GLfloat> randomFloats(0.0, 1.0); // generates random floats between 0.0 and 1.0
+    std::default_random_engine generator;
+    std::vector<glm::vec3> ssaoKernel;
+    for (unsigned int i = 0; i < 64; ++i)
+    {
+        glm::vec3 sample(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, randomFloats(generator));
+        sample = glm::normalize(sample);
+        sample *= randomFloats(generator);
+        float scale = float(i) / 64.0;
+
+        // scale samples s.t. they're more aligned to center of kernel
+        scale = lerp(0.1f, 1.0f, scale * scale);
+        sample *= scale;
+        ssaoKernel.push_back(sample);
+    }
+    // generate noise texture
+    // ----------------------
+    std::vector<glm::vec3> ssaoNoise;
+    for (unsigned int i = 0; i < 16; i++)
+    {
+        glm::vec3 noise(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, 0.0f); // rotate around z-axis (in tangent space)
+        ssaoNoise.push_back(noise);
+    }
+    unsigned int noiseTexture; glGenTextures(1, &noiseTexture);
+    glBindTexture(GL_TEXTURE_2D, noiseTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 4, 4, 0, GL_RGB, GL_FLOAT, &ssaoNoise[0]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    // lighting info
+    // -------------
+    glm::vec3 lightPosition = glm::vec3(1.8, 6.0, 2.0);
+    glm::vec3 lightColor = glm::vec3(0.6f, 0.0f, 1.0f);
+
+
+
+
+    // shader configuration
+    // --------------------
+    shaderLightingPass.use();
+    shaderLightingPass.setInt("gPosition", 0);
+    shaderLightingPass.setInt("gNormal", 1);
+    shaderLightingPass.setInt("gAlbedo", 2);
+    shaderLightingPass.setInt("ssao", 3);
+    shaderSSAO.use();
+    shaderSSAO.setInt("gPosition", 0);
+    shaderSSAO.setInt("gNormal", 1);
+    shaderSSAO.setInt("texNoise", 2);
+    shaderSSAOBlur.use();
+    shaderSSAOBlur.setInt("ssaoInput", 0);
+
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
@@ -319,130 +450,226 @@ int main(){
         // ------
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-      
-        // lightshowShader setup 
-        // -----------
-        lightshowShader.use();
-        lightshowShader.setVec3("viewPos", camera.Position);
-        lightshowShader.setFloat("material.shininess", 16.0f);
-        lightshowShader.setInt("blinn", blinn);
-        lightshowShader.setInt("flashLight", flashLight);
-      
-        // directional light setup
-        lightshowShader.setVec3("dirLight.direction", 1.0f, -0.5f, 0.0f);
-        lightshowShader.setVec3("dirLight.ambient", 0.01f, 0.01f, 0.01f);
-        lightshowShader.setVec3("dirLight.diffuse", 0.4f, 0.4f, 0.4f);
-        lightshowShader.setVec3("dirLight.specular", 1.0f, 1.0f, 1.0f);
-      
-        // point light setup 
-        //lightshowShader.setVec3("pointLight.position", cakeposition);
-        lightshowShader.setVec3("pointLight.position", glm::vec3(5.15f, 9.0f, 4.0f));
-        lightshowShader.setVec3("pointLight.ambient", 0.01f, 0.01f, 0.01f);
-        lightshowShader.setVec3("pointLight.diffuse", 1.0f, 1.0f, 1.0f);
-        lightshowShader.setVec3("pointLight.specular", 1.0f, 1.0f, 1.0f);
-        lightshowShader.setFloat("pointLight.constant", 1.0f);
-        lightshowShader.setFloat("pointLight.linear", 0.05f);
-        lightshowShader.setFloat("pointLight.quadratic", 0.012f);
-      
-        //set_spot_light(lightshowShader);
-        // spotlight setup(5.15f, -0.5f, 4.0f)
-        lightshowShader.setVec3("spotLight.position", glm::vec3(5.15f, 9.0f, 4.0f));
-        lightshowShader.setVec3("spotLight.direction", lightPos);
-        lightshowShader.setVec3("spotLight.ambient", 1.0f, 1.0f, 1.0f);
-        lightshowShader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
-        lightshowShader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
-        lightshowShader.setFloat("spotLight.constant", 0.3f);
-        lightshowShader.setFloat("spotLight.linear", 0.1);
-        lightshowShader.setFloat("spotLight.quadratic", 0.1);
-        lightshowShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(17.9f)));
-        lightshowShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(0.0f)));
-        //lightshowShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(0.0f)));
-      
-        // view/projection transformations
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
-        glm::mat4 view = camera.GetViewMatrix();
-        lightshowShader.setMat4("projection", projection);
-        lightshowShader.setMat4("view", view);
 
-        glm::mat4 model(1.0f);
-      
-        // world transformations
-        model = glm::mat4(1.0f);
-
-        model = glm::translate(model, cakeposition);
-        model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0, 1.0, 0.0));
-        model = glm::scale(model, glm::vec3(0.5f));
-        lightshowShader.setMat4("model", model);
-      
-        // render cake 
-        cake.Draw(lightshowShader);
-        glm::mat4 model1(1.0f);
-        model1 = glm::translate(model1, coffeeposition);
-        //model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0, 1.0, 0.0));
-        model1 = glm::scale(model1, glm::vec3(4.5f));
-        lightshowShader.setMat4("model", model1);
-
-        coffee.Draw(lightshowShader);
-      
-        // tablecloth setup
-        // light properties
-        lightshowShader.setVec3("dirLight.specular", 0.5f, 0.5f, 0.5f);
-
-        // material properties
-        lightshowShader.setFloat("material.shininess", 256.0f);
-
-        // world transformation
-       model = glm::mat4(1.0f);
-        model = glm::translate(model, glm::vec3(0.0f, -0.51f, 0.0f));
-        model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-        model = glm::scale(model, glm::vec3(25.0f));
-        lightshowShader.setMat4("model", model);
-      
-        // bind diffuse map 
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, floorDiffuseMap);
-
-        // render tablecloth
-        glBindVertexArray(floorVAO);
-        glEnable(GL_CULL_FACE);     // floor won't be visible if looked from bellow
-        glCullFace(GL_BACK);
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
-        glDisable(GL_CULL_FACE);
-
-      
-        // grassbox shader setup 
-        // -----------
-        glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
-        grassboxShader.use();
-        view = glm::mat4(glm::mat3(camera.GetViewMatrix())); // remove translation from the view matrix
-        grassboxShader.setMat4("view", view);
-        grassboxShader.setMat4("projection", projection);
-
-        // render grassbox cube 
-       glBindVertexArray(grassboxVAO);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glBindVertexArray(0);
-        glDepthFunc(GL_LESS); // set depth function back to default
-        
-
-        // vegetation
-        shader.use();
-        projection = glm::perspective(glm::radians(camera.Zoom), (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f,
-                                      100.0f);
-        view = camera.GetViewMatrix();
-        model = glm::mat4(1.0f);
-        shader.setMat4("projection", projection);
-        shader.setMat4("view", view);
-        glBindVertexArray(transparentVAO);
-        glBindTexture(GL_TEXTURE_2D, transparentTexture);
-        for (unsigned int i = 0; i < vegetation.size(); i++) {
+        if(ssao == true) {
+// 1. geometry pass: render scene's geometry/color data into gbuffer
+            // -----------------------------------------------------------------
+            glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float) SCR_WIDTH / (float) SCR_HEIGHT,
+                                                    0.1f, 100.0f);
+            glm::mat4 view = camera.GetViewMatrix();
+            glm::mat4 model = glm::mat4(1.0f);
+            shaderGeometryPass.use();
+            shaderGeometryPass.setMat4("projection", projection);
+            shaderGeometryPass.setMat4("view", view);
+            // room cube
             model = glm::mat4(1.0f);
-            model = glm::translate(model, vegetation[i]);
-            model = glm::scale(model, glm::vec3(3.0f));
-            shader.setMat4("model", model);
-            glDrawArrays(GL_TRIANGLES, 0, 6);
+            model = glm::translate(model, glm::vec3(0.0, 20.0f, 0.0f));
+            model = glm::scale(model, glm::vec3(20.0f));
+            shaderGeometryPass.setMat4("model", model);
+            shaderGeometryPass.setInt("invertedNormals", 1); // invert normals as we're inside the cube
+            renderCube();
+            shaderGeometryPass.setInt("invertedNormals", 0);
+
+
+            //torta
+            model = glm::mat4(1.0f);
+
+            model = glm::translate(model, cakeposition);
+            model = glm::rotate(model, (float) glfwGetTime(), glm::vec3(0.0, 1.0, 0.0));
+            model = glm::scale(model, glm::vec3(0.5f));
+            shaderGeometryPass.setMat4("model", model);
+
+            //kafa
+            cake.Draw(shaderGeometryPass);
+            glm::mat4 model1(1.0f);
+            model1 = glm::translate(model1, coffeeposition);
+            model1 = glm::scale(model1, glm::vec3(4.5f));
+            shaderGeometryPass.setMat4("model", model1);
+
+            coffee.Draw(shaderGeometryPass);
+
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+            // 2. generate SSAO texture
+            // ------------------------
+            glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
+            glClear(GL_COLOR_BUFFER_BIT);
+            shaderSSAO.use();
+            // Send kernel + rotation
+            for (unsigned int i = 0; i < 64; ++i)
+                shaderSSAO.setVec3("samples[" + std::to_string(i) + "]", ssaoKernel[i]);
+            shaderSSAO.setMat4("projection", projection);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, gPosition);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, gNormal);
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, noiseTexture);
+            renderQuad();
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
+            // 3. blur SSAO texture to remove noise
+            // ------------------------------------
+            glBindFramebuffer(GL_FRAMEBUFFER, ssaoBlurFBO);
+            glClear(GL_COLOR_BUFFER_BIT);
+            shaderSSAOBlur.use();
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
+            renderQuad();
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
+            // 4. lighting pass: traditional deferred Blinn-Phong lighting with added screen-space ambient occlusion
+            // -----------------------------------------------------------------------------------------------------
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            shaderLightingPass.use();
+            // send light relevant uniforms
+            glm::vec3 lightPosView = glm::vec3(camera.GetViewMatrix() * glm::vec4(lightPosition, 1.0));
+            shaderLightingPass.setVec3("light.Position", lightPosView);
+            shaderLightingPass.setVec3("light.Color", lightColor);
+            // Update attenuation parameters
+            const float linear = 0.07;
+            const float quadratic = 0.034;
+            shaderLightingPass.setFloat("light.Linear", linear);
+            shaderLightingPass.setFloat("light.Quadratic", quadratic);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, gPosition);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, gNormal);
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, gAlbedo);
+            glActiveTexture(GL_TEXTURE3); // add extra SSAO texture to lighting pass
+            glBindTexture(GL_TEXTURE_2D, ssaoColorBufferBlur);
+            renderQuad();
+        }else {
+            // lightshowShader setup
+            // -----------
+            lightshowShader.use();
+            lightshowShader.setVec3("viewPos", camera.Position);
+            lightshowShader.setFloat("material.shininess", 16.0f);
+            lightshowShader.setInt("blinn", blinn);
+            lightshowShader.setInt("flashLight", flashLight);
+
+            // directional light setup
+            lightshowShader.setVec3("dirLight.direction", 1.0f, -0.5f, 0.0f);
+            lightshowShader.setVec3("dirLight.ambient", 0.01f, 0.01f, 0.01f);
+            lightshowShader.setVec3("dirLight.diffuse", 0.4f, 0.4f, 0.4f);
+            lightshowShader.setVec3("dirLight.specular", 1.0f, 1.0f, 1.0f);
+
+            // point light setup
+            //lightshowShader.setVec3("pointLight.position", cakeposition);
+            lightshowShader.setVec3("pointLight.position", glm::vec3(5.15f, 9.0f, 4.0f));
+            lightshowShader.setVec3("pointLight.ambient", 0.01f, 0.01f, 0.01f);
+            lightshowShader.setVec3("pointLight.diffuse", 1.0f, 1.0f, 1.0f);
+            lightshowShader.setVec3("pointLight.specular", 1.0f, 1.0f, 1.0f);
+            lightshowShader.setFloat("pointLight.constant", 1.0f);
+            lightshowShader.setFloat("pointLight.linear", 0.05f);
+            lightshowShader.setFloat("pointLight.quadratic", 0.012f);
+
+            //set_spot_light(lightshowShader);
+            // spotlight setup(5.15f, -0.5f, 4.0f)
+            lightshowShader.setVec3("spotLight.position", glm::vec3(5.15f, 9.0f, 4.0f));
+            lightshowShader.setVec3("spotLight.direction", lightPos);
+            lightshowShader.setVec3("spotLight.ambient", 1.0f, 1.0f, 1.0f);
+            lightshowShader.setVec3("spotLight.diffuse", 1.0f, 1.0f, 1.0f);
+            lightshowShader.setVec3("spotLight.specular", 1.0f, 1.0f, 1.0f);
+            lightshowShader.setFloat("spotLight.constant", 0.3f);
+            lightshowShader.setFloat("spotLight.linear", 0.1);
+            lightshowShader.setFloat("spotLight.quadratic", 0.1);
+            lightshowShader.setFloat("spotLight.cutOff", glm::cos(glm::radians(17.9f)));
+            lightshowShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(0.0f)));
+            //lightshowShader.setFloat("spotLight.outerCutOff", glm::cos(glm::radians(0.0f)));
+
+            // view/projection transformations
+            glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float) SCR_WIDTH / (float) SCR_HEIGHT,
+                                                    0.1f, 100.0f);
+            glm::mat4 view = camera.GetViewMatrix();
+            lightshowShader.setMat4("projection", projection);
+            lightshowShader.setMat4("view", view);
+
+            glm::mat4 model(1.0f);
+
+            // world transformations
+            model = glm::mat4(1.0f);
+
+            model = glm::translate(model, cakeposition);
+            model = glm::rotate(model, (float) glfwGetTime(), glm::vec3(0.0, 1.0, 0.0));
+            model = glm::scale(model, glm::vec3(0.5f));
+            lightshowShader.setMat4("model", model);
+
+            // kafa
+            cake.Draw(lightshowShader);
+            glm::mat4 model1(1.0f);
+            model1 = glm::translate(model1, coffeeposition);
+            model1 = glm::scale(model1, glm::vec3(4.5f));
+            lightshowShader.setMat4("model", model1);
+
+            coffee.Draw(lightshowShader);
+
+            // tablecloth setup
+            // light properties
+            lightshowShader.setVec3("dirLight.specular", 0.5f, 0.5f, 0.5f);
+
+            // material properties
+            lightshowShader.setFloat("material.shininess", 256.0f);
+
+            // world transformation
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, glm::vec3(0.0f, -0.51f, 0.0f));
+            model = glm::rotate(model, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+            model = glm::scale(model, glm::vec3(25.0f));
+            lightshowShader.setMat4("model", model);
+
+            // bind diffuse map
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, floorDiffuseMap);
+
+            // render tablecloth
+            glBindVertexArray(floorVAO);
+            glEnable(GL_CULL_FACE);     // floor won't be visible if looked from bellow
+            glCullFace(GL_BACK);
+            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+            glDisable(GL_CULL_FACE);
+
+
+            // grassbox shader setup
+            // -----------
+            glDepthFunc(
+                    GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
+            grassboxShader.use();
+            view = glm::mat4(glm::mat3(camera.GetViewMatrix())); // remove translation from the view matrix
+            grassboxShader.setMat4("view", view);
+            grassboxShader.setMat4("projection", projection);
+
+            // render grassbox cube
+            glBindVertexArray(grassboxVAO);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+            glDrawArrays(GL_TRIANGLES, 0, 36);
+            glBindVertexArray(0);
+            glDepthFunc(GL_LESS); // set depth function back to default
+
+
+            // vegetation
+            shader.use();
+            projection = glm::perspective(glm::radians(camera.Zoom), (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f,
+                                          100.0f);
+            view = camera.GetViewMatrix();
+            model = glm::mat4(1.0f);
+            shader.setMat4("projection", projection);
+            shader.setMat4("view", view);
+            glBindVertexArray(transparentVAO);
+            glBindTexture(GL_TEXTURE_2D, transparentTexture);
+            for (unsigned int i = 0; i < vegetation.size(); i++) {
+                model = glm::mat4(1.0f);
+                model = glm::translate(model, vegetation[i]);
+                model = glm::scale(model, glm::vec3(3.0f));
+                shader.setMat4("model", model);
+                glDrawArrays(GL_TRIANGLES, 0, 6);
+            }
         }
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -532,6 +759,14 @@ void processInput(GLFWwindow *window)
     {
         flashLightKeyPressed = false;
     }
+    if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS )
+    {
+        ssao = true;
+    }
+    if (glfwGetKey(window, GLFW_KEY_O) == GLFW_RELEASE)
+    {
+        ssao = false;
+    }
 }
 
 
@@ -620,193 +855,6 @@ unsigned int loadCubemap(vector<std::string> faces)
     return textureID;
 }
 
-unsigned int quadVAO = 0;
-unsigned int quadVBO;
-void renderQuad()
-{
-    if (quadVAO == 0)
-    {
-        // positions
-        glm::vec3 pos1(-1.0f,  1.0f, 0.0f);
-        glm::vec3 pos2(-1.0f, -1.0f, 0.0f);
-        glm::vec3 pos3( 1.0f, -1.0f, 0.0f);
-        glm::vec3 pos4( 1.0f,  1.0f, 0.0f);
-        // texture coordinates
-        glm::vec2 uv1(0.0f, 1.0f);
-        glm::vec2 uv2(0.0f, 0.0f);
-        glm::vec2 uv3(1.0f, 0.0f);
-        glm::vec2 uv4(1.0f, 1.0f);
-        // normal vector
-        glm::vec3 nm(0.0f, 0.0f, 1.0f);
-
-        // calculate tangent/bitangent vectors of both triangles
-        glm::vec3 tangent1, bitangent1;
-        glm::vec3 tangent2, bitangent2;
-        // triangle 1
-        // ----------
-        glm::vec3 edge1 = pos2 - pos1;
-        glm::vec3 edge2 = pos3 - pos1;
-        glm::vec2 deltaUV1 = uv2 - uv1;
-        glm::vec2 deltaUV2 = uv3 - uv1;
-
-        float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
-
-        tangent1.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
-        tangent1.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
-        tangent1.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
-
-        bitangent1.x = f * (-deltaUV2.x * edge1.x + deltaUV1.x * edge2.x);
-        bitangent1.y = f * (-deltaUV2.x * edge1.y + deltaUV1.x * edge2.y);
-        bitangent1.z = f * (-deltaUV2.x * edge1.z + deltaUV1.x * edge2.z);
-
-        // triangle 2
-        // ----------
-        edge1 = pos3 - pos1;
-        edge2 = pos4 - pos1;
-        deltaUV1 = uv3 - uv1;
-        deltaUV2 = uv4 - uv1;
-
-        f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
-
-        tangent2.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
-        tangent2.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
-        tangent2.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
-
-
-        bitangent2.x = f * (-deltaUV2.x * edge1.x + deltaUV1.x * edge2.x);
-        bitangent2.y = f * (-deltaUV2.x * edge1.y + deltaUV1.x * edge2.y);
-        bitangent2.z = f * (-deltaUV2.x * edge1.z + deltaUV1.x * edge2.z);
-
-
-        float quadVertices[] = {
-                // positions            // normal         // texcoords  // tangent                          // bitangent
-                pos1.x, pos1.y, pos1.z, nm.x, nm.y, nm.z, uv1.x, uv1.y, tangent1.x, tangent1.y, tangent1.z, bitangent1.x, bitangent1.y, bitangent1.z,
-                pos2.x, pos2.y, pos2.z, nm.x, nm.y, nm.z, uv2.x, uv2.y, tangent1.x, tangent1.y, tangent1.z, bitangent1.x, bitangent1.y, bitangent1.z,
-                pos3.x, pos3.y, pos3.z, nm.x, nm.y, nm.z, uv3.x, uv3.y, tangent1.x, tangent1.y, tangent1.z, bitangent1.x, bitangent1.y, bitangent1.z,
-
-                pos1.x, pos1.y, pos1.z, nm.x, nm.y, nm.z, uv1.x, uv1.y, tangent2.x, tangent2.y, tangent2.z, bitangent2.x, bitangent2.y, bitangent2.z,
-                pos3.x, pos3.y, pos3.z, nm.x, nm.y, nm.z, uv3.x, uv3.y, tangent2.x, tangent2.y, tangent2.z, bitangent2.x, bitangent2.y, bitangent2.z,
-                pos4.x, pos4.y, pos4.z, nm.x, nm.y, nm.z, uv4.x, uv4.y, tangent2.x, tangent2.y, tangent2.z, bitangent2.x, bitangent2.y, bitangent2.z
-        };
-        // configure plane VAO
-        glGenVertexArrays(1, &quadVAO);
-        glGenBuffers(1, &quadVBO);
-        glBindVertexArray(quadVAO);
-        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(2);
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(6 * sizeof(float)));
-        glEnableVertexAttribArray(3);
-        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(8 * sizeof(float)));
-        glEnableVertexAttribArray(4);
-        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(11 * sizeof(float)));
-    }
-    glBindVertexArray(quadVAO);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    glBindVertexArray(0);
-}
-
-
-// renders a 1x1 quad in NDC with manually calculated tangent vectors
-// ------------------------------------------------------------------
-unsigned int quadVAO1 = 0;
-unsigned int quadVBO1;
-void renderQuad1()
-{
-    if (quadVAO1 == 0)
-    {
-        // positions
-        glm::vec3 pos1(-1.0f,  1.0f, 0.0f);
-        glm::vec3 pos2(-1.0f, -1.0f, 0.0f);
-        glm::vec3 pos3( 1.0f, -1.0f, 0.0f);
-        glm::vec3 pos4( 1.0f,  1.0f, 0.0f);
-        // texture coordinates
-        glm::vec2 uv1(0.0f, 1.0f);
-        glm::vec2 uv2(0.0f, 0.0f);
-        glm::vec2 uv3(1.0f, 0.0f);
-        glm::vec2 uv4(1.0f, 1.0f);
-        // normal vector
-        glm::vec3 nm(0.0f, 0.0f, 1.0f);
-
-        // calculate tangent/bitangent vectors of both triangles
-        glm::vec3 tangent1, bitangent1;
-        glm::vec3 tangent2, bitangent2;
-        // triangle 1
-        // ----------
-        glm::vec3 edge1 = pos2 - pos1;
-        glm::vec3 edge2 = pos3 - pos1;
-        glm::vec2 deltaUV1 = uv2 - uv1;
-        glm::vec2 deltaUV2 = uv3 - uv1;
-
-        float f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
-
-        tangent1.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
-        tangent1.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
-        tangent1.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
-        tangent1 = glm::normalize(tangent1);
-
-        bitangent1.x = f * (-deltaUV2.x * edge1.x + deltaUV1.x * edge2.x);
-        bitangent1.y = f * (-deltaUV2.x * edge1.y + deltaUV1.x * edge2.y);
-        bitangent1.z = f * (-deltaUV2.x * edge1.z + deltaUV1.x * edge2.z);
-        bitangent1 = glm::normalize(bitangent1);
-
-        // triangle 2
-        // ----------
-        edge1 = pos3 - pos1;
-        edge2 = pos4 - pos1;
-        deltaUV1 = uv3 - uv1;
-        deltaUV2 = uv4 - uv1;
-
-        f = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV2.x * deltaUV1.y);
-
-        tangent2.x = f * (deltaUV2.y * edge1.x - deltaUV1.y * edge2.x);
-        tangent2.y = f * (deltaUV2.y * edge1.y - deltaUV1.y * edge2.y);
-        tangent2.z = f * (deltaUV2.y * edge1.z - deltaUV1.y * edge2.z);
-        tangent2 = glm::normalize(tangent2);
-
-
-        bitangent2.x = f * (-deltaUV2.x * edge1.x + deltaUV1.x * edge2.x);
-        bitangent2.y = f * (-deltaUV2.x * edge1.y + deltaUV1.x * edge2.y);
-        bitangent2.z = f * (-deltaUV2.x * edge1.z + deltaUV1.x * edge2.z);
-        bitangent2 = glm::normalize(bitangent2);
-
-
-        float quadVertices[] = {
-                // positions            // normal         // texcoords  // tangent                          // bitangent
-                pos1.x, pos1.y, pos1.z, nm.x, nm.y, nm.z, uv1.x, uv1.y, tangent1.x, tangent1.y, tangent1.z, bitangent1.x, bitangent1.y, bitangent1.z,
-                pos2.x, pos2.y, pos2.z, nm.x, nm.y, nm.z, uv2.x, uv2.y, tangent1.x, tangent1.y, tangent1.z, bitangent1.x, bitangent1.y, bitangent1.z,
-                pos3.x, pos3.y, pos3.z, nm.x, nm.y, nm.z, uv3.x, uv3.y, tangent1.x, tangent1.y, tangent1.z, bitangent1.x, bitangent1.y, bitangent1.z,
-
-                pos1.x, pos1.y, pos1.z, nm.x, nm.y, nm.z, uv1.x, uv1.y, tangent2.x, tangent2.y, tangent2.z, bitangent2.x, bitangent2.y, bitangent2.z,
-                pos3.x, pos3.y, pos3.z, nm.x, nm.y, nm.z, uv3.x, uv3.y, tangent2.x, tangent2.y, tangent2.z, bitangent2.x, bitangent2.y, bitangent2.z,
-                pos4.x, pos4.y, pos4.z, nm.x, nm.y, nm.z, uv4.x, uv4.y, tangent2.x, tangent2.y, tangent2.z, bitangent2.x, bitangent2.y, bitangent2.z
-        };
-        // configure plane VAO
-        glGenVertexArrays(1, &quadVAO1);
-        glGenBuffers(1, &quadVBO1);
-        glBindVertexArray(quadVAO1);
-        glBindBuffer(GL_ARRAY_BUFFER, quadVBO1);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
-        glEnableVertexAttribArray(0);
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(1);
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(2);
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(6 * sizeof(float)));
-        glEnableVertexAttribArray(3);
-        glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(8 * sizeof(float)));
-        glEnableVertexAttribArray(4);
-        glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 14 * sizeof(float), (void*)(11 * sizeof(float)));
-    }
-    glBindVertexArray(quadVAO1);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
-    glBindVertexArray(0);
-}
-
 
 void set_spot_light(Shader& objectShader, Camera& camera) {
     objectShader.setVec3("spotLight.position", glm::vec3(1.0f, 1.0f, 12.0f));
@@ -829,4 +877,106 @@ void set_spot_light(Shader& objectShader, Camera& camera) {
 
     objectShader.setVec3("viewPos", camera.Position);
     objectShader.setFloat("material.shininess", 128.0f);
+}
+unsigned int cubeVAO = 0;
+unsigned int cubeVBO = 0;
+void renderCube()
+{
+    // initialize (if necessary)
+    if (cubeVAO == 0)
+    {
+        float vertices[] = {
+                // back face
+                -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f, // bottom-left
+                1.0f,  1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f, // top-right
+                1.0f, -1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 0.0f, // bottom-right
+                1.0f,  1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 1.0f, 1.0f, // top-right
+                -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 0.0f, 0.0f, // bottom-left
+                -1.0f,  1.0f, -1.0f,  0.0f,  0.0f, -1.0f, 0.0f, 1.0f, // top-left
+                // front face
+                -1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f, // bottom-left
+                1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 0.0f, // bottom-right
+                1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f, // top-right
+                1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 1.0f, 1.0f, // top-right
+                -1.0f,  1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, 1.0f, // top-left
+                -1.0f, -1.0f,  1.0f,  0.0f,  0.0f,  1.0f, 0.0f, 0.0f, // bottom-left
+                // left face
+                -1.0f,  1.0f,  1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-right
+                -1.0f,  1.0f, -1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 1.0f, // top-left
+                -1.0f, -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-left
+                -1.0f, -1.0f, -1.0f, -1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-left
+                -1.0f, -1.0f,  1.0f, -1.0f,  0.0f,  0.0f, 0.0f, 0.0f, // bottom-right
+                -1.0f,  1.0f,  1.0f, -1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-right
+                // right face
+                1.0f,  1.0f,  1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-left
+                1.0f, -1.0f, -1.0f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-right
+                1.0f,  1.0f, -1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 1.0f, // top-right
+                1.0f, -1.0f, -1.0f,  1.0f,  0.0f,  0.0f, 0.0f, 1.0f, // bottom-right
+                1.0f,  1.0f,  1.0f,  1.0f,  0.0f,  0.0f, 1.0f, 0.0f, // top-left
+                1.0f, -1.0f,  1.0f,  1.0f,  0.0f,  0.0f, 0.0f, 0.0f, // bottom-left
+                // bottom face
+                -1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f, // top-right
+                1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 1.0f, // top-left
+                1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f, // bottom-left
+                1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f, 1.0f, 0.0f, // bottom-left
+                -1.0f, -1.0f,  1.0f,  0.0f, -1.0f,  0.0f, 0.0f, 0.0f, // bottom-right
+                -1.0f, -1.0f, -1.0f,  0.0f, -1.0f,  0.0f, 0.0f, 1.0f, // top-right
+                // top face
+                -1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f, // top-left
+                1.0f,  1.0f , 1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f, // bottom-right
+                1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 1.0f, // top-right
+                1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f, 1.0f, 0.0f, // bottom-right
+                -1.0f,  1.0f, -1.0f,  0.0f,  1.0f,  0.0f, 0.0f, 1.0f, // top-left
+                -1.0f,  1.0f,  1.0f,  0.0f,  1.0f,  0.0f, 0.0f, 0.0f  // bottom-left
+        };
+        glGenVertexArrays(1, &cubeVAO);
+        glGenBuffers(1, &cubeVBO);
+        // fill buffer
+        glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+        // link vertex attributes
+        glBindVertexArray(cubeVAO);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+        glEnableVertexAttribArray(2);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+    }
+    // render Cube
+    glBindVertexArray(cubeVAO);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glBindVertexArray(0);
+}
+// renderQuad() renders a 1x1 XY quad in NDC
+// -----------------------------------------
+unsigned int quadVAO = 0;
+unsigned int quadVBO;
+void renderQuad()
+{
+    if (quadVAO == 0)
+    {
+        float quadVertices[] = {
+                // positions        // texture Coords
+                -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+                -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+                1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+                1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+        };
+        // setup plane VAO
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+        glBindVertexArray(quadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    }
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
 }
