@@ -97,7 +97,7 @@ int main(){
     // -------------------------
     Shader grassboxShader("resources/shaders/grassbox.vs", "resources/shaders/grassbox.fs");
     Shader lightshowShader("resources/shaders/lightshow.vs", "resources/shaders/lightshow.fs");
-     Shader shader("resources/shaders/blending.vs", "resources/shaders/blending.fs");
+    Shader shader("resources/shaders/blending.vs", "resources/shaders/blending.fs");
 
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
@@ -162,8 +162,8 @@ int main(){
         -1.0f, -1.0f,  1.0f,
          1.0f, -1.0f,  1.0f
     };
-  
-     float transparentVertices[] = {
+
+    float transparentVertices[] = {
             // positions         // texture Coords (swapped y coordinates because texture is flipped upside down)
             0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
             0.0f, -0.5f,  0.0f,  0.0f,  1.0f,
@@ -173,7 +173,6 @@ int main(){
             1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
             1.0f,  0.5f,  0.0f,  1.0f,  0.0f
     };
-  
   
     // tablecloth setup
     unsigned int floorVAO, floorVBO, floorEBO;
@@ -205,8 +204,8 @@ int main(){
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), nullptr);
     glEnableVertexAttribArray(0);
-  
-  // transparent VAO
+
+// transparent VAO
     unsigned int transparentVAO, transparentVBO;
     glGenVertexArrays(1, &transparentVAO);
     glGenBuffers(1, &transparentVBO);
@@ -224,7 +223,7 @@ int main(){
 
     // lightshow textures
     unsigned int cakeSpecularRed = loadTexture(FileSystem::getPath("resources/objects/slice_of_cake/red.jpeg").c_str());
-  unsigned int transparentTexture = loadTexture(FileSystem::getPath("resources/textures/grass.png").c_str());
+    unsigned int transparentTexture = loadTexture(FileSystem::getPath("resources/textures/grass.png").c_str());
 
     // transparent vegetation locations
     // --------------------------------
@@ -274,50 +273,19 @@ int main(){
     grassboxShader.use();
     grassboxShader.setInt("grassbox", 0);
 
-      shader.use();
+
+    shader.use();
     shader.setInt("texture1", 0);
-  
+
     // load model
     Model cake(FileSystem::getPath("resources/objects/slice_of_cake/cake.obj"));
     Model coffee(FileSystem::getPath("resources/objects/coffee/coffee_cup_obj.obj"));
     cake.SetShaderTextureNamePrefix("material.");
     coffee.SetShaderTextureNamePrefix("material.");
-  
-  
     Model leaf(FileSystem::getPath("resources/objects/leaf/leaf.obj"));
     leaf.SetShaderTextureNamePrefix("material.");
 
-    float time = glfwGetTime();
-    unsigned int amount = 70;
-    glm::mat4* modelMatrices;
-    modelMatrices = new glm::mat4[amount];
-    srand(glfwGetTime()); // initialize random seed
-    float radius = 60.0;
-    float offset = 80.0f;
-    for (unsigned int i = 0; i < amount; i++)
-    {
-        glm::mat4 model = glm::mat4(1.0f);
-        // 1. translation: displace along circle with 'radius' in range [-offset, offset]
-        float angle = (float)i / (float)amount * 360.0f;
-        float displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
-        float x = sin(angle) * radius + displacement;
-        displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
-        float y = displacement * 0.4f; // keep height of asteroid field smaller compared to width of x and z
-        displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
-        float z = cos(angle) * radius + displacement;
-        model = glm::translate(model, glm::vec3(x, y, z));
 
-        // 2. scale: Scale between 0.05 and 0.25f
-        float scale = (rand() % 20) / 100.0f + 0.05;
-        model = glm::scale(model, glm::vec3(0.18, 0.18, 0.18));
-
-        // 3. rotation: add random rotation around a (semi)randomly picked rotation axis vector
-        float rotAngle = (rand() % 360);
-        model = glm::rotate(model, rotAngle, glm::vec3(2.0f, 0.0f, 3.0f)-glm::vec3(1.1f, 1.1f, 1.1f));
-
-        // 4. now add to list of matrices
-        modelMatrices[i] = model;
-    }
 
 
     glm::vec3 lightPos((5.15f, -0.5f, 4.0f));
@@ -440,14 +408,7 @@ int main(){
         glCullFace(GL_BACK);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
         glDisable(GL_CULL_FACE);
-      
-      
-  
-        for(unsigned  int i = 0; i < amount; i++){
-            modelMatrices[i] = glm::rotate(modelMatrices[i], glm::radians(20.0f), glm::vec3(0,0,1));
-            lightshowShader.setMat4("model", modelMatrices[i]);
-            leaf.Draw(lightshowShader);
-        }
+
       
         // grassbox shader setup 
         // -----------
@@ -464,55 +425,25 @@ int main(){
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
         glDepthFunc(GL_LESS); // set depth function back to default
+        
 
-        // render normal-mapped quad
-// glm::mat4 model = glm::mat4(1.0f);
-        model = glm::rotate(model, glm::radians((float)glfwGetTime() * -10.0f), glm::normalize(glm::vec3(1.0, 0.0, 1.0))); // rotate the quad to show normal mapping from multiple directions
-        lightshowShader.setMat4("model", model);
-        lightshowShader.setVec3("viewPos", camera.Position);
-        lightshowShader.setVec3("lightPos", lightPos);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, diffuseMap);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, normalMap);
-        renderQuad();
-
-        // render light source (simply re-renders a smaller plane at the light's position for debugging/visualization)
-        model = glm::mat4(1.0f);
-        model = glm::translate(model, lightPos);
-        model = glm::scale(model, glm::vec3(0.1f));
-        lightshowShader.setMat4("model", model);
-        renderQuad();
-      
-        glm::mat4 model5 = glm::mat4(1.0f);
-        model5 = glm::rotate(model5, glm::radians((float)glfwGetTime() * -10.0f), glm::normalize(glm::vec3(1.0, 1.0, 1.0))); // rotate the quad to show parallax mapping from multiple directions
-        lightshowShader.setMat4("model", model5);
-        lightshowShader.setVec3("viewPos", camera.Position);
-        lightshowShader.setVec3("lightPos", lightPos);
-        lightshowShader.setFloat("heightScale", heightScale); // adjust with Q and E keys
-        std::cout << heightScale << std::endl;
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, diffuseMap1);
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, normalMap1);
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, heightMap1);
-        renderQuad1();
+        // vegetation
         shader.use();
-       projection = glm::perspective(glm::radians(camera.Zoom), (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f,
-                                          100.0f);
+        projection = glm::perspective(glm::radians(camera.Zoom), (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f,
+                                      100.0f);
         view = camera.GetViewMatrix();
-         model = glm::mat4(1.0f);
-         shader.setMat4("projection", projection);
-         shader.setMat4("view", view);
-         glBindVertexArray(transparentVAO);
-         glBindTexture(GL_TEXTURE_2D, transparentTexture);
-         for (unsigned int i = 0; i < vegetation.size(); i++) {
-         model = glm::mat4(1.0f);
-         model = glm::translate(model, vegetation[i]);
-         model = glm::scale(model, glm::vec3(3.0f));
-          shader.setMat4("model", model);
+        model = glm::mat4(1.0f);
+        shader.setMat4("projection", projection);
+        shader.setMat4("view", view);
+        glBindVertexArray(transparentVAO);
+        glBindTexture(GL_TEXTURE_2D, transparentTexture);
+        for (unsigned int i = 0; i < vegetation.size(); i++) {
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, vegetation[i]);
+            model = glm::scale(model, glm::vec3(3.0f));
+            shader.setMat4("model", model);
             glDrawArrays(GL_TRIANGLES, 0, 6);
+        }
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
         glfwSwapBuffers(window);
