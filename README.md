@@ -14,5 +14,5 @@ The project contains:
   * **B**: activate/deactivate Blinn-Phong lighting model
   * **V**: switch spot light on/off
   * **O** SSAO on
-  * **I** quads are displayedn
+  * **I** quads are displayed
 
