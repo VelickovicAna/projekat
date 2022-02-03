@@ -32,6 +32,7 @@ bool blinnKeyPressed = false;
 bool flashLight = false;
 bool flashLightKeyPressed = false;
 bool ssao = false;
+bool i = false;
 
 // camera 
 Camera camera(glm::vec3(0.0f, 3.0f, 15.0f));
@@ -110,6 +111,7 @@ int main(){
     Shader shaderLightingPass("resources/shaders/ssao.vs", "resources/shaders/light_ssao.fs");
     Shader shaderSSAO("resources/shaders/ssao.vs", "resources/shaders/ssao.fs");
     Shader shaderSSAOBlur("resources/shaders/ssao.vs", "resources/shaders/blur.fs");
+    Shader iShader("resources/shaders/instancing.vs", "resources/shaders/instancing.fs");
 
     // set up vertex data (and buffer(s)) and configure vertex attributes
     // ------------------------------------------------------------------
@@ -430,6 +432,56 @@ int main(){
     shaderSSAOBlur.use();
     shaderSSAOBlur.setInt("ssaoInput", 0);
 
+    glm::vec2 translations[100];
+    int index = 0;
+    float offset = 0.1f;
+    for (int y = -10; y < 10; y += 2)
+    {
+        for (int x = -10; x < 10; x += 2)
+        {
+            glm::vec2 translation;
+            translation.x = (float)x / 10.0f + offset;
+            translation.y = (float)y / 10.0f + offset;
+            translations[index++] = translation;
+        }
+    }
+
+    // store instance data in an array buffer
+    // --------------------------------------
+    unsigned int instanceVBO;
+    glGenBuffers(1, &instanceVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(glm::vec2) * 100, &translations[0], GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    // set up vertex data (and buffer(s)) and configure vertex attributes
+    // ------------------------------------------------------------------
+    float quadVertices[] = {
+            // positions     // colors
+            -0.05f,  0.05f,  1.0f, 0.0f, 0.0f,
+            0.05f, -0.05f,  0.0f, 1.0f, 0.0f,
+            -0.05f, -0.05f,  0.0f, 0.0f, 1.0f,
+
+            -0.05f,  0.05f,  1.0f, 0.0f, 0.0f,
+            0.05f, -0.05f,  0.0f, 1.0f, 0.0f,
+            0.05f,  0.05f,  0.0f, 1.0f, 1.0f
+    };
+    unsigned int quadVAO, quadVBO;
+    glGenVertexArrays(1, &quadVAO);
+    glGenBuffers(1, &quadVBO);
+    glBindVertexArray(quadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(2 * sizeof(float)));
+    // also set instance data
+    glEnableVertexAttribArray(2);
+    glBindBuffer(GL_ARRAY_BUFFER, instanceVBO); // this attribute comes from a different vertex buffer
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), (void*)0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glVertexAttribDivisor(2, 1); // tell OpenGL this is an instanced vertex attribute.
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window))
@@ -670,6 +722,13 @@ int main(){
                 shader.setMat4("model", model);
                 glDrawArrays(GL_TRIANGLES, 0, 6);
             }
+            if(i) {
+                // draw 100 instanced quads
+                iShader.use();
+                glBindVertexArray(quadVAO);
+                glDrawArraysInstanced(GL_TRIANGLES, 0, 6, 100); // 100 triangles of 6 vertices each
+                glBindVertexArray(0);
+            }
         }
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
         // -------------------------------------------------------------------------------
@@ -766,6 +825,15 @@ void processInput(GLFWwindow *window)
     if (glfwGetKey(window, GLFW_KEY_O) == GLFW_RELEASE)
     {
         ssao = false;
+    }
+
+    if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS )
+    {
+        i = true;
+    }
+    if (glfwGetKey(window, GLFW_KEY_I) == GLFW_RELEASE)
+    {
+        i = false;
     }
 }
 
