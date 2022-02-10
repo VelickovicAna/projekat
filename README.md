@@ -10,9 +10,12 @@ The project contains:
 * **Instancing**: 2d quad
 * **Face culling**: if a side on an object cannot be seen, don't render it
 * **SSAO**
+* **HDR**
+* **BLOOM**
 * **By pressing**:
   * **B**: activate/deactivate Blinn-Phong lighting model
   * **V**: switch spot light on/off
   * **O**: SSAO on
   * **I**: quads are displayed
+  * **H**: BLOOM on
 
